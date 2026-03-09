@@ -2,6 +2,85 @@ import cv2
 import mediapipe as mp
 import math
 import numpy as np
+import tkinter as tk
+import threading
+import json
+
+settings = 'data.json'
+
+with open(settings, 'r') as file:
+    data = json.load(file)
+
+censor = data['censor']
+censorFace = data['censorFace']
+
+# 1. Variáveis globais de controle (Intermediárias entre TK e OpenCV)
+var_censor = None
+var_censor_face = None
+
+def iniciar_gui():
+    global var_censor, var_censor_face
+    
+    root = tk.Tk()
+    root.title("Controle")
+    root.geometry("400x250") # Aumentei a janela para caber tudo
+    root.configure(bg="#1e1e1e")
+
+    var_censor = tk.BooleanVar(value=censor)
+    var_censor_face = tk.BooleanVar(value=censorFace)
+
+    # --- CONFIGURAÇÃO DE FONTE GRANDE ---
+    # (Família, Tamanho, Estilo)
+    fonte_grande = ("Consolas", 18, "bold")
+
+    def ao_mudar():
+        with open('data.json', 'w') as f:
+            json.dump({"censor": var_censor.get(), "censorFace": var_censor_face.get()}, f)
+
+    # --- CHECKBOXES CONFIGURADAS ---
+    # 'padx' e 'pady' dentro do pack criam margem externa
+    # 'pady' dentro do Checkbutton (opção interna) aumenta a área clicável
+    
+    check_mao = tk.Checkbutton(
+        root, 
+        text="Censura Mão", 
+        variable=var_censor, 
+        command=ao_mudar,
+        font=fonte_grande,      # Isso aumenta o texto e a altura da linha
+        fg="#00FF00",           # Verde neon
+        bg="#1e1e1e",
+        selectcolor="#333333",  # Cor do fundo do quadradinho
+        activebackground="#1e1e1e",
+        activeforeground="#00FF00",
+        padx=20,                # Espaço lateral interno
+        pady=15                 # Espaço vertical interno (faz o botão parecer maior)
+    )
+    check_mao.pack(fill="x", pady=5)
+
+    check_face = tk.Checkbutton(
+        root, 
+        text="Censura Face", 
+        variable=var_censor_face, 
+        command=ao_mudar,
+        font=fonte_grande,
+        fg="#00FF00",
+        bg="#1e1e1e",
+        selectcolor="#333333",
+        activebackground="#1e1e1e",
+        activeforeground="#00FF00",
+        padx=20,
+        pady=15
+    )
+    check_face.pack(fill="x", pady=5)
+
+    root.mainloop()
+
+# --- NO SEU SCRIPT PRINCIPAL ---
+
+# 2. Inicie a thread ANTES do loop 'while cap.isOpened()'
+threading.Thread(target=iniciar_gui, daemon=True).start()
+
+cap = cv2.VideoCapture(0)
 
 # os coiso la do mediapipe
 mp_hands = mp.solutions.hands
@@ -10,21 +89,19 @@ hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5
 face_mesh = mp_face.FaceMesh(max_num_faces=1)
 mp_drawing = mp.solutions.drawing_utils
 
-# toggle
-censor = False
-censorFace = False
-
 # titulo camera
-tituloCamera = "wow, camera"
+tituloCamera = "C.A.T."
 
 # cores
 HAND_COLOR = (255, 255, 255) 
 FACE_COLOR = (255, 255, 255)  
 TXT_COLOR = (0, 255, 0)
 
-cap = cv2.VideoCapture(0)
-
 while cap.isOpened():
+    # Só tenta ler se a interface já tiver sido criada pela thread
+    if var_censor is not None:
+        censor = var_censor.get()
+        censorFace = var_censor_face.get()
     success, image = cap.read()
     if not success: 
         continue
